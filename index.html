@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Ayos | webgl-multiplayer-has</title>
+    <title>Ayos | Hide and Seek</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
   </head>
@@ -11,170 +11,200 @@
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=450 height=900></canvas>
       <div id="unity-loading-bar">
-        <div id="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full"></div>
-        </div>
         <div id="unity-logo-wrapper">
           <div id="unity-logo"></div>
         </div>
         <div id="unity-fill"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
       </div>
     </div>
     <script>
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
-        var buildUrl = "Build";
-        var loaderUrl = buildUrl + "/prod-multip-has.loader.js";
-        var config = {
-          dataUrl: buildUrl + "/prod-multip-has.data",
-          frameworkUrl: buildUrl + "/prod-multip-has.framework.js",
-          codeUrl: buildUrl + "/prod-multip-has.wasm",
-          memoryUrl: buildUrl + "/",
-          symbolsUrl: buildUrl + "/",
-          streamingAssetsUrl: "StreamingAssets",
-          companyName:  "Multisys Technologies Corporation",
-          productName: "webgl-multiplayer-has",
-          productVersion: "1",
-        };
 
-        var container = document.querySelector("#unity-container");
-        var canvas = document.querySelector("#unity-canvas");
-        var loadingBar = document.querySelector("#unity-loading-bar");
-        var progressBarFull = document.querySelector("#unity-progress-bar-full");
-        // By default Unity keeps WebGL canvas render target size matched with
-        // the DOM size of the canvas element (scaled by window.devicePixelRatio)
-        // Set this to false if you want to decouple this synchronization from
-        // happening inside the engine, and you would instead like to size up
-        // the canvas DOM size and WebGL render target sizes yourself.
-        // config.matchWebGLToCanvasSize = false;
-
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-          var meta = document.createElement('meta');
-          meta.name = 'viewport';
-          meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-          document.getElementsByTagName('head')[0].appendChild(meta);
-          container.className = "unity-mobile";
-
-          // To lower canvas resolution on mobile devices to gain some
-          // performance, uncomment the following line:
-          // config.devicePixelRatio = 1;
-
-          canvas.style.width = window.innerWidth + 'px';
-          canvas.style.height = window.innerHeight + 'px';
-        } else {
-          canvas.style.width = "450px";
-          canvas.style.height = "900px";
+        var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        function isIOS() {
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                return true;
+            } else {
+                return false;
+            }
         }
-        loadingBar.style.display = "flex";
+        function isAndroid() {
+            return (/android/i.test(userAgent));
+        }
+        function sendMessageToUnity(message) {
+            if (isIOS()) {
+                try {
+                    webkit.messageHandlers.UnityInAppBrowser.postMessage(message);
+                } catch (err) {
+                    console.log('[IOS] Cannot reach native code');
+                }
+            } else if (isAndroid()) {
+                UnityInAppBrowser.sendMessageFromJS(message);
+            }
+        }
+        function ExitGame(val, token) {
+            if (urlParams.has('lobby')) {
+                var lob = urlParams.get('lobby') + '/?' + urlParams.get('partner_id');
+                window.location.href = lob + '&token=' + token;
+            } else {
+                window.location.href = "ayos://Exit?code=" + val;
+                // if (isIOS()) {
+                //     try {
+                //         alert('[EXIT][IOS] Exiting with code: ' + val);
+                //         window.location.href = "ayos://Exit?code=" + val;
+                //     } catch (err) {
+                //         alert('[EXIT][IOS] Cannot exit: ' + err.message);
+                //     }
+                // } else if (isAndroid()) {
+                //     try {
+                //         alert('[EXIT][ANDROID] Exiting with code: ' + val);
+                //         sendMessageToUnity("Exit=" + val);
+                //     } catch (err) {
+                //         console.log('[EXIT][ANDROID] Cannot exit: ' + err.message);
+                //     }
+                // }
+            }
+            //ELSE exit unity webview
+        }
 
-          var script = document.createElement("script");
-          script.src = loaderUrl;
-          script.onload = () => {
-              createUnityInstance(canvas, config, (progress) => {
-                  progressBarFull.style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
-                  this.unityInstance = unityInstance;
-                  loadingBar.style.display = "none";
+        function OpenMultiplayer(link, val, token, bgm, sfx) {
+            window.location.href = link + '?auth=' + token + '&uuid=' + val + '&sett=' + bgm + '.' + sfx;
+        }
 
-                  var _data = urlParams.get('auth') + "&" + urlParams.get('uuid') + "&" + urlParams.get('sett');
-                  unityInstance.SendMessage("Data Manager", "InitializeGame", _data);
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
 
-                  document.addEventListener('mousemove', resetTimer);
-                  document.addEventListener('keypress', resetTimer);
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      //function unityShowBanner(msg, type) {
+      //  function updateBannerVisibility() {
+      //    warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+      //  }
+      //  var div = document.createElement('div');
+      //  div.innerHTML = msg;
+      //  warningBanner.appendChild(div);
+      //  if (type == 'error') div.style = 'background: red; padding: 10px;';
+      //  else {
+      //    if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+      //    setTimeout(function() {
+      //      warningBanner.removeChild(div);
+      //      updateBannerVisibility();
+      //    }, 5000);
+      //  }
+      //  updateBannerVisibility();
+      //}
 
-                  document.addEventListener('touchstart', resetTimer);
-                  document.addEventListener('click', resetTimer);
-
-                  startTimer();
-
-
-              }).catch((message) => {
-                  alert(message);
-              });
-          };
-          document.body.appendChild(script);
-
-      var timeoutID;
-
-      if (typeof document.hidden !== "undefined") {
-          document.addEventListener("visibilitychange", handleVisibilityChange);
-      }
-
-      function handleVisibilityChange() {
-          if (document.hidden) {
-              MuteAudio();
-          }
-          else {
-              UnMuteAudio();
-          }
-      }
-
-      window.addEventListener('offline', function(){
-        unityInstance.SendMessage("Data Manager", "NoNetwork");
-      });
-
-      function MuteAudio() {
-
-          unityInstance.SendMessage("Data Manager", "MuteAudio");
-      }
-
-      function UnMuteAudio() {
-
-          unityInstance.SendMessage("Data Manager", "UnMuteAudio");
-      }
-
-      function startTimer() {
-        timeoutID = window.setTimeout(doInactive, 60000); // set timer to 60 seconds
-      }
-
-      function resetTimer() {
-        window.clearTimeout(timeoutID);
-        startTimer();
-      }
-
-      function doInactive() {
-        unityInstance.SendMessage("Data Manager", "ForceDisconnect");
-      }
-    </script>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-analytics.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-remote-config.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js"></script>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
-
-    <script>
-      // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBOJhSW_exEEtvgg1ky3x76pxqNP7p_mTs",
-      authDomain: "gamebox-prod.firebaseapp.com",
-      databaseURL: "https://gamebox-prod-default-rtdb.firebaseio.com",
-      projectId: "gamebox-prod",
-      storageBucket: "gamebox-prod.appspot.com",
-      messagingSenderId: "493998710529",
-      appId: "1:493998710529:web:ac2bc6b6fc9ef6b1664500"
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/prod-multip-has.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/prod-multip-has.data",
+        frameworkUrl: buildUrl + "/prod-multip-has.framework.js",
+        codeUrl: buildUrl + "/prod-multip-has.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Multisys Technologies Corporation",
+        productName: "Hide and Seek",
+        productVersion: "0.1",
+        //showBanner: unityShowBanner,
       };
 
-      // Initialize Firebase and features
-      firebase.initializeApp(firebaseConfig);
+      // By default Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
 
-      var database = firebase.database();
-      var db = firebase.firestore();
-      var storage = firebase.storage();
-      var functions = firebase.functions();
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
 
-      const analytics = firebase.analytics();
-      const remoteConfig = firebase.remoteConfig();
-      remoteConfig.settings.minimumFetchIntervalMillis = 0;
-      const messaging = firebase.messaging();
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        container.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+      } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
+
+        canvas.style.width = "450px";
+        canvas.style.height = "900px";
+      }
+
+      loadingBar.style.display = "flex";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          this.unityInstance = unityInstance;
+            loadingBar.style.display = "none";
+            var data = urlParams.get('auth') + "&" + urlParams.get('uuid');
+            unityInstance.SendMessage("[Bridge]", "SetData", data);
+
+            var hidden, visibilityChange;
+            var isPageVisible = true;
+
+            if (typeof document.hidden !== "undefined") {
+                hidden = "hidden";
+                visibilityChange = "visibilitychange";
+            } else if (typeof document["msHidden"] !== "undefined") {
+                hidden = "msHidden";
+                visibilityChange = "msvisibilitychange";
+            } else if (typeof document["webkitHidden"] !== "undefined") {
+                hidden = "webkitHidden";
+                visibilityChange = "webkitvisibilitychange";
+            }
+
+            function handleVisibilityChange(hiddenState, reason) {
+                if (hiddenState) {
+                    if (isPageVisible) {
+                        //console.log('visibility: hidden', reason);
+                        isPageVisible = false;
+                        unityInstance.SendMessage("[Bridge]", "TogglePause", "PAUSED");
+                    }
+                } else {
+                    //console.log('visibility: restored', reason);
+                    isPageVisible = true;
+                    unityInstance.SendMessage("[Bridge]", "TogglePause", "UNPAUSED");
+                }
+            }
+
+            if (typeof document.addEventListener === "undefined" || typeof document[hidden] === "undefined") {
+                console.log("Browser doesn't support the Page visibility API.");
+            } else {
+                document.addEventListener(visibilityChange, () => handleVisibilityChange(document.hidden), false);
+                window.addEventListener("focus", () => handleVisibilityChange(false, 'focus'));
+                window.addEventListener("blur", () => handleVisibilityChange(true, 'blur'));
+            }
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+      function MuteAudio(){
+        unityInstance.SendMessage("[Bridge]", "MuteAudio");
+      }
+      function UnMuteAudio(){
+        unityInstance.SendMessage("[Bridge]", "UnMuteAudio");
+      }
     </script>
   </body>
 </html>
