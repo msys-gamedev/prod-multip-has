@@ -48,6 +48,7 @@
         }
         function ExitGame(val, token) {
                 window.close();
+                console.log('Exit Game!');
             if (urlParams.has('lobby')) {
                 var lob = urlParams.get('lobby') + '/?' + urlParams.get('partner_id');
                 window.location.href = lob + '&token=' + token;
